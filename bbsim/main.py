@@ -1,20 +1,28 @@
+import logging, logging.handlers
+import sys
+logFormatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+bblogs = logging.getLogger()
+bblogs.setLevel(logging.NOTSET)
+
+toFile = logging.handlers.RotatingFileHandler(filename='bbsim.log', maxBytes=102400, backupCount=10)
+toFile.setLevel(logging.DEBUG)
+toFile.setFormatter(logFormatter)
+bblogs.addHandler(toFile)
+
+toConsole = logging.StreamHandler(sys.stdout)
+toConsole.setLevel(logging.INFO)
+toConsole.setFormatter(logFormatter)
+bblogs.addHandler(toConsole)
+
 import random
 import uuid
-import logging
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s %(levelname)s %(message)s',
-    filename='bbsim.log',
-    filemode='w'
-)
 
 class BaseballSimulator:
     def __init__(self):
         self.outcomes = ["strike", "ball", "single", "double", "triple", "home_run", "out", "strike", "out", "ball", "out"]
-        self.hometeam = "Rebels"
+        self.hometeam = ""
         self.homescore = 0
-        self.awayteam = "Senators"
+        self.awayteam = ""
         self.awayscore = 0
         self.inning = 0
         self.atbat = ""
@@ -52,13 +60,13 @@ class BaseballSimulator:
             self.strikes = 0
             self.balls = 0
             self.outs += 1
-        print(f"Pitch: {pitch_result} | Current Runs: {self.runs_scored}")
+        bblogs.debug(f"{self.game_id}: Pitch: {pitch_result} | Current Runs: {self.runs_scored}")
         return(pitch_result)
 
     def run_bases(self, hit_type):
         if hit_type == 'home_run':
             self.runs_scored += sum(self.bases) + 1
-            self.bases = [0, 0, 0] 
+            self.bases = [0, 0, 0]
             return(self.runs_scored)
         elif hit_type == 'triple':
             self.runs_scored += sum(self.bases)
@@ -75,7 +83,7 @@ class BaseballSimulator:
             return(self.runs_scored)
         else:
             return -1
-        
+
     def reset_inning(self):
         self.strikes = 0 # clear the strike count
         self.balls = 0 # clear the ball count
@@ -87,33 +95,77 @@ class BaseballSimulator:
         while self.outs < 3:
             self.pitch()
 
-    def play_game(self, max_innings = 3):
+    def play_game(self, game_id = uuid.uuid4(), max_innings = 3, hometeam = "Rebels", awayteam = "Senators"):
+        self.game_id = game_id
+        self.hometeam = hometeam
+        self.awayteam = awayteam
         self.inning = 1
         self.atbat = "awayteam"
         while self.inning <= max_innings:
             if self.atbat == "hometeam":
-                print(f"Bottom of inning {self.inning}: {self.hometeam} at bat.")
+                bblogs.info(f"{self.game_id}: Bottom of inning {self.inning} - {self.hometeam} at bat.")
                 self.play_inning()
-                print(f"{self.hometeam} scored {self.runs_scored} runs and left {sum(self.bases)} runners on base.")
+                bblogs.info(f"{self.game_id}: {self.hometeam} scored {self.runs_scored} runs and left {sum(self.bases)} runners on base.")
                 self.homescore += self.runs_scored
-                print(f"Score: {self.awayteam}: {self.awayscore} | {self.hometeam}: {self.homescore}")
+                bblogs.info(f"{self.game_id}: Score - {self.awayteam}: {self.awayscore} | {self.hometeam}: {self.homescore}")
                 self.reset_inning()
                 self.inning += 1 # progress inning
                 self.atbat = "awayteam"
             else:
-                print(f"Top of inning {self.inning}: {self.awayteam} at bat.")
+                bblogs.info(f"{self.game_id}: Top of inning {self.inning} - {self.awayteam} at bat.")
                 self.play_inning()
-                print(f"{self.awayteam} scored {self.runs_scored} runs and left {sum(self.bases)} runners on base.")
+                bblogs.info(f"{self.game_id}: {self.awayteam} scored {self.runs_scored} runs and left {sum(self.bases)} runners on base.")
                 self.awayscore += self.runs_scored
-                print(f"Score: {self.awayteam}: {self.awayscore} | {self.hometeam}: {self.homescore}")
+                bblogs.info(f"{self.game_id}: Score - {self.awayteam}: {self.awayscore} | {self.hometeam}: {self.homescore}")
                 self.reset_inning()
                 self.atbat = "hometeam"
-    
-        print("Game Over!")
-        print(f"Final Score: {self.awayteam}: {self.awayscore} | {self.hometeam}: {self.homescore}")
+
+        bblogs.info(str(self.game_id) + ": Game Over")
+        bblogs.info(f"{self.game_id}: Final Score - {self.awayteam}: {self.awayscore} | {self.hometeam}: {self.homescore}")
+
+def getHometeam():
+    looper = True
+    while looper:
+        try:
+            hometeam = input("Enter the name of the home team: ")
+            if hometeam.isalpha():
+                return(hometeam)
+                looper = False
+            else:
+                raise TypeError
+        except TypeError:
+            print("Please use only letters for the team name.")
+            bblogs.debug("Invalid hometeam input - " + hometeam)
+            continue
+        except EOFError:
+            return("Rebels")
+            looper = False
+
+def getAwayteam():
+    looper = True
+    while looper:
+        try:
+            awayteam = input("Enter the name of the away team: ")
+            if awayteam.isalpha():
+                return(awayteam)
+                looper = False
+            else:
+                raise TypeError
+        except TypeError:
+            print("Please use only letters for the team name.")
+            bblogs.debug("Invalid awayteam input - " + awayteam)
+            continue
+        except EOFError:
+            return("Senators")
+            looper = False
 
 if __name__ == "__main__":
-    simulator = BaseballSimulator()
+    hometeam = getHometeam()
+    bblogs.debug("Home team is " + hometeam)
+    awayteam = getAwayteam()
+    bblogs.debug("Away team is " + awayteam)
+    innings = int(input("How many innings would you like to play?"))
     gameid = uuid.uuid4()
-    simulator.play_game(gameid)
-    
+    simulator = BaseballSimulator()
+    bblogs.info(str(gameid) + ": Game Starting")
+    simulator.play_game(gameid, innings, hometeam, awayteam)
